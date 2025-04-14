@@ -1,0 +1,31 @@
+# gitignore
+
+# ignore
+.DS_Store
+
+# ignore dataset folder
+data/
+
+# ignore model folder
+saved_models
+
+# vscode
+.vscode
+__pycache__/
+
+# folder
+Model*/
+
+# docx, zip
+*.zip
+*.docx
+*.png 
+!Image/*.png
+*.txt
+
+# ========== temp ===========
+# ignore folder 
+report
+all
+saved_models_ciou
+best_model
