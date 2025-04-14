@@ -3,22 +3,19 @@
 - Name: 江仲恩
 
 ## Introduction
-In this assignment, we aim to build a robust image classification model for the dataset provided in HW1. To achieve strong generalization performance, we adopt a transfer learning approach using ResNeXt-101 pretrained on ImageNet, and fine-tune its fully connected layers on the target dataset.
-To tackle challenges such as visual similarity between species, we introduce several techniques :
-- **Strong data augmentations** to enhance model robustness under various lighting conditions, perspectives, and background clutter.
-- **Label smoothing and progressive loss switching** to stabilize training during early epochs.
-- **Focal Loss** to emphasize hard-to-classify examples and mitigate the effects of class imbalance.
-- **Exponential Moving Average (EMA)** of model weights to improve validation stability and final performance.
-- **Test-Time Augmentation (TTA)** to further boost prediction accuracy by aggregating results from multiple augmented views during inference.
+In this assignment, we aim to develop a robust digit detection model capable of accurately localizing and classifying digits in each image from the HW2 dataset. To achieve strong generalization performance, we adopt a Faster R-CNN framework with a ResNet-50 backbone, a Region Proposal Network (RPN) as the neck, and classification and localization heads. Additionally, we fine-tune the RPN anchor settings to further improve detection accuracy.
 
-Our pipeline includes class-balanced loss weighting, cosine learning rate scheduling, and detailed monitoring through training curves and confusion matrices. The final model achieves over 92–95% validation accuracy, with smooth convergence and minimal overfitting.
+Furthermore, we experiment with different loss functions, such as CIoU Loss and DIoU Loss, to evaluate their impact on model performance. To further analyze the effect on mean Average Precision (mAP), we also fine-tune various anchor size combinations, comparing their contributions to overall accuracy.
+
+Our best configuration achieves a mAP of **0.38** and an accuracy of **0.84**, demonstrating the effectiveness of our model design and optimization strategies.
+
 
 ## How to install
 
 1. Clone the repository
 ```
-git clone https://github.com/CEJiang/NYCU-Computer-Vision-2025-Spring-HW1.git
-cd NYCU-Computer-Vision-2025-Spring-HW1
+git clone https://github.com/CEJiang/NYCU-Computer-Vision-2025-Spring-HW2.git
+cd NYCU-Computer-Vision-2025-Spring-HW2
 ```
 
 2. Create and activate conda environment
@@ -28,18 +25,20 @@ conda activate cv
 ```
 
 3. Download the dataset 
-- You can download the dataset from the provided [LINK](https://drive.google.com/file/d/1fx4Z6xl5b6r4UFkBrn5l0oPEIagZxQ5u/view)
+- You can download the dataset from the provided [LINK](https://drive.google.com/file/d/13JXJ_hIdcloC63sS-vF3wFQLsUP1sMz5/view?usp=sharing)
 - Place it in the following structure
 ```
 NYCU-Computer-Vision-2025-Spring-HW1
-├── data
+├── nycu-hw2-data
 │   ├── test
 │   ├── train
-│   └── val
+│   ├── val
+│   ├── train.json
+│   └── val.json
 ├── utils
 │   ├── __init__.py
-│   ├── early_stopping.py
 │   ├── losses.py
+│   ├── memory.py
 │   .
 │   .
 │   .
@@ -59,36 +58,43 @@ NYCU-Computer-Vision-2025-Spring-HW1
     ```
     Example
     ```
-    python main.py ./data --epochs 100 --batch_size 64 --learning_rate 5e-5 --decay 1e-4 --save saved_models
+    python main.py ./nycu-hw2-data --epochs 15 --batch_size 8 --learning_rate 1e-4 --decay 1e-4 --save saved_models
     ```
     2. Test Model
     ```
     python main.py DATAPATH --mode test
     ```
+    Example
+    ```
+    python main.py ./nycu-hw2-data --mode test
+    ```
 
 ## Performance snapshot
 ### Training Parameter Configuration
 
-| Parameter        | Value                                               |
-|------------------|-----------------------------------------------------|
-| Model            | ResNeXt-101                                         |
-| Pretrained Weight| IMAGENET1K_V2                                       |
-| Learning Rate    | 0.00005                                             |
-| Batch Size       | 64                                                  |
-| Epochs           | 100                                                 |
-| Optimizer        | AdamW                                               |
-| Eta_min          | 0.00001                                             |
-| T_max            | 50                                                  |
-| Scheduler        | `CosineAnnealingLR`                                 |
-| label_smoothing  | 0.05                                                |
-| Criterion        | `CrossEntropyLoss` -> `SmoothFocal` -> `Focal`      |
+| Parameter        | Value                                                               |
+|------------------|---------------------------------------------------------------------|
+| Pretrained Weight| FasterRCNN_ResNet50_FPN_V2                                          |
+| Learning Rate    | 0.0001                                                              |
+| Batch Size       | 8                                                                   |
+| Epochs           | 15                                                                  |
+| decay            | 0.0001                                                              |
+| Optimizer        | AdamW                                                               |
+| Eta_min          | 0.000001                                                            |
+| T_max            | 15                                                                  |
+| Scheduler        | `CosineAnnealingLR`                                                 |
+| Criterion        | `CrossEntropyLoss(Classification)` + `Smooth L1 Loss(Localization)` |
 
 ### Training Curve
-![Image](https://github.com/CEJiang/NYCU-Computer-Vision-2025-Spring-HW1/blob/main/Image/train_curve.png)
-### Confusion Matrix
-![Image](https://github.com/CEJiang/NYCU-Computer-Vision-2025-Spring-HW1/blob/main/Image/confusion_matrix.png)
+![Image](https://github.com/CEJiang/NYCU-Computer-Vision-2025-Spring-HW2/blob/main/Image/training_curve.png)
+### validate mAP Curve
+![Image](https://github.com/CEJiang/NYCU-Computer-Vision-2025-Spring-HW2/blob/main/Image/val_map_curve.png)
+### validate AP / AR Curve
+![Image](https://github.com/CEJiang/NYCU-Computer-Vision-2025-Spring-HW2/blob/main/Image/ResNet50_Original.png)
+
 ### Performance
-|                  | Accuracy(%)                                         |
-|------------------|-----------------------------------------------------|
-| Validation       | 95                                                  |
-| Public Test      | 96                                                  |
+|                  | mAP                      | Accuracy                 |
+|------------------|--------------------------|--------------------------|
+| Validation       | 0.4650                   | ******                   |
+| Public Test      | 0.3798                   | 0.8360                   |
+
