@@ -28,7 +28,7 @@ conda activate cv
 - You can download the dataset from the provided [LINK](https://drive.google.com/file/d/13JXJ_hIdcloC63sS-vF3wFQLsUP1sMz5/view?usp=sharing)
 - Place it in the following structure
 ```
-NYCU-Computer-Vision-2025-Spring-HW1
+NYCU-Computer-Vision-2025-Spring-HW2
 ├── nycu-hw2-data
 │   ├── test
 │   ├── train
