@@ -1,12 +1,12 @@
 """
 test.py
 
-Inference and post-processing script for digit detection using a trained Faster R-CNN model.
+Inference script for digit detection using a trained Faster R-CNN model.
 
-Supports:
-- Loading and running inference on test images
-- Exporting predictions in COCO JSON format (Task 1)
-- Post-processing predictions to digit strings and saving results as CSV (Task 2)
+Performs:
+- Loading and running inference on test images.
+- Saving predictions in COCO JSON format (Task 1).
+- Post-processing detections into digit strings and saving as CSV (Task 2).
 """
 import os
 import json
@@ -20,17 +20,8 @@ from train import collate_fn, get_transform
 
 
 class TestDataset(Dataset):
-    """
-    A dataset class for loading test images for inference.
+    """Dataset for loading test images."""
 
-    Args:
-        image_dir (str): Path to the test image directory.
-
-    Returns:
-        Each sample is a tuple of:
-            - image (Tensor): Transformed input image tensor.
-            - file_name (str): Original filename (used for image ID extraction).
-    """
     def __init__(self, image_dir):
         self.image_paths = sorted([
             os.path.join(image_dir, f)
@@ -51,16 +42,7 @@ class TestDataset(Dataset):
 
 
 def load_data(data_path, batch_size):
-    """
-    Loads test data into a DataLoader for inference.
-
-    Args:
-        data_path (str): Path to the dataset root (must contain 'test' folder).
-        batch_size (int): Batch size for DataLoader.
-
-    Returns:
-        DataLoader: A DataLoader for the test dataset.
-    """
+    """Load test data into a DataLoader."""
     test_dataset = TestDataset(os.path.join(data_path, "test"))
     test_loader = DataLoader(test_dataset, batch_size=batch_size,
                              shuffle=False, collate_fn=collate_fn)
@@ -68,18 +50,7 @@ def load_data(data_path, batch_size):
 
 
 def test_model(device, model, args):
-    """
-    Runs inference on the test set using the best model checkpoint and saves predictions.
-
-    Args:
-        device (torch.device): Device to run inference on.
-        model (nn.Module): The trained detection model.
-        args (Namespace): Arguments containing config (e.g., save path, data path, batch size).
-
-    Saves:
-        - pred.json: COCO-format detection results for Task 1.
-        - pred.csv: Post-processed digit predictions for Task 2.
-    """
+    """Run inference on the test set and save predictions (Task 1 & 2)."""
     model_path = os.path.join(args.save, "best_model.pth")
     if not os.path.exists(model_path):
         print(f"No model found at {model_path}")
@@ -91,7 +62,6 @@ def test_model(device, model, args):
     print(f"Loaded model from {model_path}")
 
     test_loader = load_data(args.data_path, args.batch_size)
-
     results_task1 = []
 
     with torch.no_grad():
@@ -110,7 +80,7 @@ def test_model(device, model, args):
                     x_min, y_min, x_max, y_max = box
                     results_task1.append({
                         "image_id": image_id,
-                        'bbox': [float(x_min), float(y_min), \
+                        'bbox': [float(x_min), float(y_min),
                                  float(x_max - x_min), float(y_max - y_min)],
                         "score": float(score),
                         "category_id": int(label)
@@ -120,7 +90,7 @@ def test_model(device, model, args):
     pred_json_path = os.path.join(args.save, "pred.json")
     with open(pred_json_path, "w", encoding="utf-8") as file:
         json.dump(results_task1, file)
-        print(f"Task 1 saved to {pred_json_path}")
+        print(f"Task 1 predictions saved to {pred_json_path}")
 
     test_task2(
         pred_json_path, os.path.join(
@@ -129,19 +99,10 @@ def test_model(device, model, args):
 
 
 def test_task2(input_json_path, test_image_dir, output_csv_path):
-    """
-    Converts detection results in pred.json to digit predictions (Task 2).
+    """Convert detection results to digit predictions (Task 2).
 
-    Args:
-        input_json_path (str): Path to JSON file containing detection results.
-        test_image_dir (str): Path to the directory containing test images.
-        output_csv_path (str): Output CSV path for saving Task 2 results.
-
-    Task 2 Logic:
-        - Group detections by image_id
-        - Sort digits from left to right by x-coordinate
-        - Combine digit class predictions into a number string
-        - Convert to integer; if conversion fails, use -1
+    Groups detections by image, sorts digits left-to-right, forms number strings,
+    and saves results as a CSV. Handles potential conversion errors.
     """
     with open(input_json_path, 'r', encoding="utf-8") as file:
         predictions = json.load(file)
@@ -149,9 +110,7 @@ def test_task2(input_json_path, test_image_dir, output_csv_path):
     image_predictions = {}
     for pred in predictions:
         image_id = pred['image_id']
-        if image_id not in image_predictions:
-            image_predictions[image_id] = []
-        image_predictions[image_id].append(pred)
+        image_predictions.setdefault(image_id, []).append(pred)
 
     image_files = sorted(os.listdir(test_image_dir))
     all_image_ids = set()
@@ -171,9 +130,8 @@ def test_task2(input_json_path, test_image_dir, output_csv_path):
             results_task2.append([image_id, -1])
         else:
             detections.sort(key=lambda x: x['bbox'][0])
-            predicted_number_str = ""
-            for detection in detections:
-                predicted_number_str += str(detection['category_id'] - 1)
+            predicted_number_str = "".join(
+                str(det['category_id'] - 1) for det in detections)
             try:
                 predicted_number = int(predicted_number_str)
                 results_task2.append([image_id, predicted_number])

@@ -8,31 +8,21 @@ from torchvision.models.detection.rpn import RPNHead
 
 
 def faster_rcnn_resnet50(num_classes, device, args):
-    """
-    Builds a Faster R-CNN model with a ResNet-50 FPN backbone.
+    """Faster R-CNN (ResNet-50 FPN).
 
-    The model is initialized from torchvision's pretrained weights and customized with:
-        - Custom anchor generator (sizes and aspect ratios)
-        - Custom RPN head with matching number of anchors
-        - Multi-scale RoI Align
-        - Custom Fast R-CNN predictor for classification
-        - Inference thresholds adjusted based on mode (train / validate / test)
+    Pretrained, customizable detection model with mode-based thresholds.
 
     Args:
-        num_classes (int): Number of output classes including background.
-        device (torch.device): The device to place the model on.
-        args (Namespace): Argument object with a 'mode' attribute.
+        num_classes (int): Output classes.
+        device (torch.device): Model device.
+        args (Namespace): Arguments with `mode`.
 
     Returns:
-        FasterRCNN: A PyTorch Faster R-CNN model ready for training or inference.
+        FasterRCNN: PyTorch model.
     """
     weights = models.detection.FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
     model = models.detection.fasterrcnn_resnet50_fpn_v2(weights=weights)
 
-    # anchor_generator = AnchorGenerator(
-    #     sizes=((4,), (8,), (12,), (24,), (48,)),
-    #     aspect_ratios=((0.25, 0.5, 1.0),) * 5
-    # )
     anchor_generator = AnchorGenerator(
         sizes=((4,), (8,), (12,), (24,), (48,)),
         aspect_ratios=((0.5, 1.0, 1.5, 2.0),) * 5
@@ -65,23 +55,17 @@ def faster_rcnn_resnet50(num_classes, device, args):
 
 
 def faster_rcnn_resnet101(num_classes, device, args):
-    """
-    Builds a Faster R-CNN model with a custom ResNet-101 FPN backbone.
+    """Faster R-CNN (ResNet-101 FPN).
 
-    The backbone is built using torchvision's resnet101 with FPN and 5 trainable layers.
-    The model is customized with:
-        - Custom anchor generator
-        - Multi-scale RoI Align
-        - Fast R-CNN predictor with modified output head
-        - Inference thresholds set based on mode
+    Customizable detection model with pretrained backbone and mode-based thresholds.
 
     Args:
-        num_classes (int): Number of output classes including background.
-        device (torch.device): The device to place the model on.
-        args (Namespace): Argument object with a 'mode' attribute ('train', 'validate', or 'test').
+        num_classes (int): Output classes.
+        device (torch.device): Model device.
+        args (Namespace): Arguments with `mode`.
 
     Returns:
-        FasterRCNN: A PyTorch Faster R-CNN model ready for training or inference.
+        FasterRCNN: PyTorch model.
     """
     backbone = resnet_fpn_backbone(
         'resnet101',

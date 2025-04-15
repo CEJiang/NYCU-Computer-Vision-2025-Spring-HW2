@@ -1,13 +1,9 @@
 """
 train.py
 
-Main training script for digit detection using Faster R-CNN with ResNet-50 backbone.
-
-This script handles:
-- Dataset loading and transformation
-- Model initialization with custom anchor settings
-- Training and validation loops with support for DIoU / CIoU loss integration
-- Checkpoint saving and metric plotting
+Main script for training a Faster R-CNN model with a ResNet-50 backbone
+for digit detection. Handles data loading, model setup with custom anchors,
+training and validation loops (with optional DIoU/CIoU loss), and saving/plotting.
 """
 import os
 import time
@@ -20,74 +16,32 @@ from pycocotools.cocoeval import COCOeval
 import torch
 
 from dataset import DigitDetectionDataset
-
-from utils import plot_loss_accuracy
-from utils import clear_memory
-from utils import visualize_sample
-from utils import visualize_batch
-from utils import plot_val_map_curve
-from utils import diou_loss, ciou_loss
+from utils import plot_loss_accuracy, clear_memory, visualize_sample, \
+    visualize_batch, plot_val_map_curve, diou_loss, ciou_loss
 
 
 def collate_fn(batch):
-    """
-    Transposes the batch (list of tuples) into a tuple of lists, which is
-    required for handling variable-length targets like bounding boxes.
-
-    Returns:
-        A tuple of (images, targets).
-    """
+    """Stack images and targets into batches."""
     return tuple(zip(*batch))
 
 
 def get_transform(train):
-    """
-     Returns a composition of image transformations for training or evaluation.
-
-    Args:
-        train (bool): Whether the transformations are for training mode.
-
-    Returns:
-        torchvision.transforms.Compose: A composition of image transformations including
-        random color jitter, Gaussian blur (only if training), and normalization.
-    """
-    transforms = [T.ToTensor()]
-
+    """Define image transformations for training or evaluation."""
+    transforms = [T.ToTensor(),
+                  T.Normalize(mean=[0.485, 0.456, 0.406],
+                              std=[0.229, 0.224, 0.225])]
     if train:
-        transforms += [
-            T.RandomApply([
-                T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2)
-            ], p=0.3),
-
-            T.RandomApply([
-                T.GaussianBlur(kernel_size=3, sigma=(0.3, 0.8))
-            ], p=0.3)
-        ]
-
-    transforms += [
-        T.Normalize(mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225])
-    ]
-
+        transforms.insert(0, T.RandomApply([
+            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2)
+        ], p=0.3))
+        transforms.insert(1, T.RandomApply([
+            T.GaussianBlur(kernel_size=3, sigma=(0.3, 0.8))
+        ], p=0.3))
     return T.Compose(transforms)
 
 
 def load_data(data_path, batch_size):
-    """
-    Loads and prepares the training and validation datasets for digit detection.
-
-    Args:
-        data_path (str): Path to the dataset directory containing
-                         'train' and 'valid' subfolders and annotations.
-        batch_size (int): Number of samples per batch to load.
-
-    Returns:
-        tuple: A tuple containing:
-            - train_loader (DataLoader): DataLoader for the training set.
-            - val_loader (DataLoader): DataLoader for the validation set.
-            - num_classes (int): The number of classes including background
-                                 (fixed as 11 for digits 0-9 + background).
-    """
+    """Load training and validation datasets."""
     train_dataset = DigitDetectionDataset(
         img_dir=f"{data_path}/train",
         annotation_file=f"{data_path}/train.json",
@@ -102,41 +56,14 @@ def load_data(data_path, batch_size):
                               num_workers=0, pin_memory=True, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,
                             num_workers=0, pin_memory=True, collate_fn=collate_fn)
-
     return train_loader, val_loader, 11
 
 
 class DetectionTrainer:
-    """
-    A training and evaluation engine for object detection models.
+    """Engine for training and evaluating object detection models."""
 
-    This class encapsulates training, validation, checkpoint saving/loading,
-    and performance tracking (loss and mAP) for models such as Faster R-CNN.
-
-    Methods:
-        - train(): Performs one epoch of training with optional loss blending (DIoU/CIoU).
-        - validate(): Evaluates model on validation set and computes COCO mAP.
-        - save_checkpoint(): Saves model, optimizer, and training state.
-        - load_checkpoint(): Loads saved training state from checkpoint.
-    """
     def __init__(self, model, optimizer, scheduler, device, save_path):
-        """
-        Initializes the training engine with model, optimizer, scheduler, and other configurations.
-
-        Args:
-            model (nn.Module): The PyTorch model to be trained.
-            optimizer (Optimizer): The optimizer used for updating model parameters.
-            scheduler (LRScheduler): Learning rate scheduler.
-            device (torch.device): The device on which training and evaluation will run.
-            save_path (str): Directory path to save best model weights and result images.
-
-        Attributes:
-            best_loss (float): Tracks the best validation loss.
-            best_map (float): Tracks the best mAP achieved.
-            train_losses (list): Stores training loss per epoch.
-            val_losses (list): Stores validation loss per epoch.
-            val_maps (list): Stores validation mAP per epoch.
-        """
+        """Initialize trainer with model, optimizer, scheduler, device, and save path."""
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -150,28 +77,11 @@ class DetectionTrainer:
         os.makedirs(save_path + "/Images", exist_ok=True)
 
     def train(self, dataloader, epoch, args):
-        """
-        Trains the model for one epoch with optional DIoU/CIoU loss integration.
-
-        Args:
-            dataloader (DataLoader): DataLoader providing training data batches.
-            epoch (int): Current epoch index (used for loss schedule).
-            args (Namespace): Arguments containing the `loss_type` setting
-                            ('original', 'diou', or 'ciou').
-
-        Returns:
-            float: Average training loss for the current epoch.
-
-        Notes:
-            - Uses AMP (Automatic Mixed Precision) with GradScaler and autocast.
-            - Blends DIoU or CIoU into the bounding box regression loss
-            progressively after epoch 6 using a linear weight schedule.
-            - Performs loss scaling and optimizer stepping via AMP.
-        """
+        """Train the model for one epoch."""
         self.model.train()
         total_loss = 0.0
         start = time.time()
-        scaler = torch.amp.GradScaler()  # 建立 GradScaler
+        scaler = torch.amp.GradScaler()
 
         for batch_idx, (images, targets) in enumerate(dataloader):
             if batch_idx % 100 == 1:
@@ -181,7 +91,7 @@ class DetectionTrainer:
                         for k, v in t.items()} for t in targets]
 
             self.optimizer.zero_grad()
-            with torch.amp.autocast(enabled=True, device_type=self.device.type):  # 使用 autocast
+            with torch.amp.autocast(enabled=True, device_type=self.device.type):
                 loss_dict = self.model(images, targets)
 
                 self.model.eval()
@@ -205,21 +115,19 @@ class DetectionTrainer:
                         0.1 + 0.05 * (epoch - 6), 0.5)
 
                     if args.loss_type == "diou":
-                        loss_dict['loss_box_reg'] = (
-                            1 - alpha) * original_loss + \
-                        alpha * diou_loss(pred_boxes, gt_boxes).mean()
+                        loss_dict['loss_box_reg'] = (1 - alpha) * original_loss + \
+                            alpha * diou_loss(pred_boxes, gt_boxes).mean()
                     elif args.loss_type == "ciou":
-                        loss_dict['loss_box_reg'] = (
-                            1 - alpha) * original_loss + \
-                                alpha * ciou_loss(pred_boxes, gt_boxes).mean()
+                        loss_dict['loss_box_reg'] = (1 - alpha) * original_loss + \
+                            alpha * ciou_loss(pred_boxes, gt_boxes).mean()
                     elif args.loss_type == "original":
                         loss_dict['loss_box_reg'] = original_loss
 
                 loss = sum(loss for loss in loss_dict.values())
 
-            scaler.scale(loss).backward()  # 縮放損失並反向傳播
-            scaler.step(self.optimizer)  # 更新模型參數
-            scaler.update()  # 更新縮放因子
+            scaler.scale(loss).backward()
+            scaler.step(self.optimizer)
+            scaler.update()
 
             total_loss += loss.item()
             if batch_idx % 100 == 0:
@@ -233,34 +141,7 @@ class DetectionTrainer:
 
     @torch.no_grad()
     def validate(self, dataloader, epoch):
-        """
-        Runs validation for one epoch, 
-        computes loss and COCO-style mAP, 
-        and saves prediction visualizations.
-
-        Args:
-            dataloader (DataLoader): DataLoader for the validation dataset.
-            epoch (int): Current epoch number, used for naming saved results and logging.
-
-        Returns:
-            tuple:
-                - avg_loss (float or None): 
-                        Average validation loss across all batches, or None if unavailable.
-                - map5095 (float or None): 
-                        COCO mAP score at IoU thresholds [0.50:0.95], or None if no predictions.
-
-        Workflow:
-            - Sets the model to evaluation mode.
-            - Collects sample predictions and targets for visualization (up to 5 images).
-            - Runs inference and formats results for COCO evaluation.
-            - Optionally computes validation loss.
-            - Computes COCO evaluation metrics and logs results to file.
-
-        Notes:
-            - The function uses `@torch.no_grad()` for efficiency.
-            - Visual outputs are saved to `Images/val_preds_epoch{epoch}`.
-            - COCO mAP logs are appended to `map_log.txt` under the specified save path.
-        """
+        """Validate the model on the validation set and compute mAP."""
         self.model.eval()
         total_loss = 0.0
         count = 0
@@ -292,7 +173,7 @@ class DetectionTrainer:
                     coco_results.append({
                         'image_id': image_id,
                         'category_id': int(label),
-                        'bbox': [float(x_min), float(y_min), \
+                        'bbox': [float(x_min), float(y_min),
                                  float(x_max - x_min), float(y_max - y_min)],
                         'score': float(score)
                     })
@@ -348,20 +229,7 @@ class DetectionTrainer:
         return (avg_loss, map5095)
 
     def save_checkpoint(self, epoch, is_best=False):
-        """
-        Saves the current training checkpoint, including model and optimizer states.
-
-        Args:
-            epoch (int): The current epoch number, to be stored in the checkpoint.
-            is_best (bool, optional): Whether the current model is the best so far.
-                                    If True, saves an additional copy as 'best_model.pth'.
-
-        Saves:
-            - latest_checkpoint.pth: 
-                    Contains model, optimizer, scheduler states, and training history.
-            - best_model.pth: 
-                    (if is_best=True) Contains only the model weights.
-        """
+        """Save the current training checkpoint."""
         ckpt = {
             "epoch": epoch,
             "model_state_dict": self.model.state_dict(),
@@ -373,11 +241,9 @@ class DetectionTrainer:
             "val_losses": self.val_losses,
             "val_maps": self.val_maps
         }
-
         torch.save(ckpt, os.path.join(self.save_path, "latest_checkpoint.pth"))
         print("Checkpoint saved.")
         if is_best:
-
             torch.save(
                 self.model.state_dict(),
                 os.path.join(
@@ -386,23 +252,7 @@ class DetectionTrainer:
             print("Best model updated.")
 
     def load_checkpoint(self, path):
-        """
-        Loads a saved checkpoint and restores model, optimizer, and scheduler states.
-
-        Args:
-            path (str): Path to the checkpoint file to be loaded.
-
-        Returns:
-            int: The epoch number to resume training from (epoch + 1).
-                Returns 0 if no checkpoint is found at the given path.
-
-        Restores:
-            - Model weights
-            - Optimizer state
-            - Scheduler state
-            - Best validation loss and mAP
-            - Training and validation loss/mAP history
-        """
+        """Load a saved checkpoint."""
         if os.path.exists(path):
             checkpoint = torch.load(path, map_location=self.device)
             self.model.load_state_dict(checkpoint["model_state_dict"])
@@ -420,20 +270,7 @@ class DetectionTrainer:
 
 
 def validate_model(device, net, val_loader, args):
-    """
-    Loads the latest model checkpoint and runs validation on the validation set.
-
-    Args:
-        device (torch.device): The device to run inference on.
-        net (nn.Module): The model to be evaluated.
-        val_loader (DataLoader): DataLoader providing validation data.
-        args (Namespace): Parsed arguments containing configuration, including save path.
-
-    Workflow:
-        - Loads model weights from 'latest_checkpoint.pth'.
-        - Initializes a DetectionTrainer with dummy optimizer/scheduler.
-        - Runs `validate()` once using the loaded model.
-    """
+    """Load the latest checkpoint and run validation."""
     ckpt_path = os.path.join(args.save, "latest_checkpoint.pth")
     checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
     net.load_state_dict(checkpoint["model_state_dict"])
@@ -452,29 +289,7 @@ def validate_model(device, net, val_loader, args):
 
 def train_model(device, net, optimizer, train_loader,
                 val_loader, scheduler, args):
-    """
-    Runs full training loop across all epochs, 
-        including checkpointing, validation, and visualization.
-
-    Args:
-        device (torch.device): The device to run training on.
-        net (nn.Module): The model to be trained.
-        optimizer (Optimizer): Optimizer for model parameter updates.
-        train_loader (DataLoader): Training dataset loader.
-        val_loader (DataLoader): Validation dataset loader.
-        scheduler (LRScheduler): Learning rate scheduler.
-        args (Namespace): 
-            Parsed arguments containing training config (epochs, save path, loss type, etc.).
-
-    Workflow:
-        - Visualizes a few training samples.
-        - Initializes DetectionTrainer and optionally resumes from checkpoint.
-        - For each epoch:
-            - Trains and validates the model.
-            - Updates training logs and learning rate.
-            - Saves checkpoint if current mAP is the best so far.
-        - Saves loss curve and validation mAP curve plots.
-    """
+    """Run the full training loop."""
     sample_images, sample_targets = next(iter(train_loader))
     for i in range(min(3, len(sample_images))):
         visualize_sample(

@@ -1,8 +1,7 @@
 """
 main.py
 
-Main entry point for training, validating, or testing a Faster R-CNN model
-on a digit detection task using PyTorch.
+Trains, validates, or tests a Faster R-CNN model for digit detection.
 """
 import argparse
 
@@ -16,73 +15,63 @@ from test import test_model
 
 
 def main():
-    """
-    Parses command-line arguments, initializes model, and runs training,
-    validation, or testing based on the selected mode.
-
-    The script supports:
-    - Customizable training hyperparameters (batch size, epochs, lr, decay)
-    - Loss scheduling with optional DIoU/CIoU integration
-    - Saving checkpoints and results to a specified directory
-    """
+    """Main entry point: parses arguments and runs the selected mode."""
     cudnn.benchmark = True
-    parser = argparse.ArgumentParser(description="Digit Detection with Faster R-CNN")
+    parser = argparse.ArgumentParser(
+        description="Digit Detection with Faster R-CNN")
 
+    parser.add_argument("data_path", type=str, help="Root path to dataset.")
     parser.add_argument(
-        "data_path",
-        type=str,
-        help="Root path to dataset folder containing 'train', 'valid', and 'test' subfolders."
-    )
-    parser.add_argument(
-        "--batch_size", "-b",
+        "-b",
+        "--batch_size",
         type=int,
         default=8,
-        help="Batch size for training and validation."
-    )
+        help="Batch size.")
+    parser.add_argument("-e", "--epoch", type=int, default=15, help="Epochs.")
     parser.add_argument(
-        "--epoch", "-e",
-        type=int,
-        default=15,
-        help="Number of training epochs."
-    )
-    parser.add_argument(
-        "--learning_rate", "-lr",
+        "-lr",
+        "--learning_rate",
         type=float,
         default=1e-4,
-        help="Initial learning rate for optimizer."
-    )
+        help="Learning rate.")
     parser.add_argument(
-        "--eta_min", "-em",
+        "-em",
+        "--eta_min",
         type=float,
         default=1e-6,
-        help="Minimum learning rate for cosine annealing scheduler."
-    )
+        help="Min LR (cosine annealing).")
     parser.add_argument(
-        "--decay", "-d",
+        "-d",
+        "--decay",
         type=float,
         default=1e-4,
-        help="Weight decay (L2 regularization) coefficient."
-    )
+        help="Weight decay.")
     parser.add_argument(
-        "--save_path", "-s",
+        "-s",
+        "--save_path",
         type=str,
         default="saved_models",
-        help="Directory to save model checkpoints and output results."
-    )
+        help="Save directory.")
     parser.add_argument(
-        "--mode", "-m",
+        "-m",
+        "--mode",
         type=str,
-        choices=["train", "validate", "test"],
+        choices=[
+            "train",
+            "validate",
+            "test"],
         default="train",
-        help="Execution mode: train the model, validate on validation set, or test on test set."
-    )
+        help="Execution mode.")
     parser.add_argument(
-        "--loss_type", "-l",
+        "-l",
+        "--loss_type",
         type=str,
-        choices=["original", "diou", "ciou"],
+        choices=[
+            "original",
+            "diou",
+            "ciou"],
         default="original",
-        help="Loss function for box regression: 'original' (SmoothL1), 'diou', or 'ciou'."
-    )
+        help="Box loss type.")
 
     args = parser.parse_args()
 
@@ -105,18 +94,15 @@ def main():
         optimizer, T_max=15, eta_min=args.eta_min)
 
     if args.mode == 'train':
-        train_model(device=device,
-                    net=net,
-                    optimizer=optimizer,
-                    train_loader=train_loader,
-                    val_loader=val_loader,
-                    scheduler=scheduler,
-                    args=args)
+        train_model(device=device, net=net, optimizer=optimizer,
+                    train_loader=train_loader, val_loader=val_loader,
+                    scheduler=scheduler, args=args)
     elif args.mode == 'validate':
-        validate_model(device=device,
-                       net=net,
-                       val_loader=val_loader,
-                       args=args)
+        validate_model(
+            device=device,
+            net=net,
+            val_loader=val_loader,
+            args=args)
     else:
         test_model(device=device, model=net, args=args)
 
