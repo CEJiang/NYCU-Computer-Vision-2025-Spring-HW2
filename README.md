@@ -10,6 +10,7 @@ Furthermore, we experiment with different loss functions, such as CIoU Loss and 
 Our best configuration achieves a mAP of **0.38** and an accuracy of **0.84**, demonstrating the effectiveness of our model design and optimization strategies.
 
 
+
 ## How to install
 
 1. Clone the repository
