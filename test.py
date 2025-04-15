@@ -51,7 +51,7 @@ def load_data(data_path, batch_size):
 
 def test_model(device, model, args):
     """Run inference on the test set and save predictions (Task 1 & 2)."""
-    model_path = os.path.join(args.save, "best_model.pth")
+    model_path = os.path.join(args.save_path, "best_model.pth")
     if not os.path.exists(model_path):
         print(f"No model found at {model_path}")
         return
@@ -86,8 +86,8 @@ def test_model(device, model, args):
                         "category_id": int(label)
                     })
 
-    os.makedirs(args.save, exist_ok=True)
-    pred_json_path = os.path.join(args.save, "pred.json")
+    os.makedirs(args.save_path, exist_ok=True)
+    pred_json_path = os.path.join(args.save_path, "pred.json")
     with open(pred_json_path, "w", encoding="utf-8") as file:
         json.dump(results_task1, file)
         print(f"Task 1 predictions saved to {pred_json_path}")
@@ -95,7 +95,7 @@ def test_model(device, model, args):
     test_task2(
         pred_json_path, os.path.join(
             args.data_path, "test"), os.path.join(
-            args.save, "pred.csv"))
+            args.save_path, "pred.csv"))
 
 
 def test_task2(input_json_path, test_image_dir, output_csv_path):

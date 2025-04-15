@@ -27,7 +27,7 @@ def main():
         type=int,
         default=8,
         help="Batch size.")
-    parser.add_argument("-e", "--epoch", type=int, default=15, help="Epochs.")
+    parser.add_argument("-e", "--epochs", type=int, default=15, help="Epochs.")
     parser.add_argument(
         "-lr",
         "--learning_rate",

@@ -271,7 +271,7 @@ class DetectionTrainer:
 
 def validate_model(device, net, val_loader, args):
     """Load the latest checkpoint and run validation."""
-    ckpt_path = os.path.join(args.save, "latest_checkpoint.pth")
+    ckpt_path = os.path.join(args.save_path, "latest_checkpoint.pth")
     checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
     net.load_state_dict(checkpoint["model_state_dict"])
     net.to(device)
@@ -281,7 +281,7 @@ def validate_model(device, net, val_loader, args):
         optimizer=None,
         scheduler=None,
         device=device,
-        save_path=args.save)
+        save_path=args.save_path)
 
     print("Running validation on validation set only...")
     _, _ = trainer.validate(val_loader, epoch=999)
@@ -297,9 +297,9 @@ def train_model(device, net, optimizer, train_loader,
             sample_targets[i],
             title=f"Sample {i}")
 
-    trainer = DetectionTrainer(net, optimizer, scheduler, device, args.save)
+    trainer = DetectionTrainer(net, optimizer, scheduler, device, args.save_path)
     start_epoch = trainer.load_checkpoint(
-        os.path.join(args.save, "latest_checkpoint.pth"))
+        os.path.join(args.save_path, "latest_checkpoint.pth"))
 
     for epoch in range(start_epoch, args.epochs):
         start_time = time.time()
@@ -325,9 +325,9 @@ def train_model(device, net, optimizer, train_loader,
         print(f"Epoch Time: {time.time() - start_time:.2f}s")
 
     plot_loss_accuracy(trainer.train_losses, trainer.val_losses, save_fig=True,
-                       output_path=os.path.join(args.save, "training_curve.png"))
+                       output_path=os.path.join(args.save_path, "training_curve.png"))
     plot_val_map_curve(
         trainer.val_maps,
         output_path=os.path.join(
-            args.save,
+            args.save_path,
             "val_map_curve.png"))
