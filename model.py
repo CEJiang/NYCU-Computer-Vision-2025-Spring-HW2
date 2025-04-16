@@ -54,52 +54,52 @@ def faster_rcnn_resnet50(num_classes, device, args):
     return model.to(device)
 
 
-def faster_rcnn_resnet101(num_classes, device, args):
-    """Faster R-CNN (ResNet-101 FPN).
+# def faster_rcnn_resnet101(num_classes, device, args):
+#     """Faster R-CNN (ResNet-101 FPN).
 
-    Customizable detection model with pretrained backbone and mode-based thresholds.
+#     Customizable detection model with pretrained backbone and mode-based thresholds.
 
-    Args:
-        num_classes (int): Output classes.
-        device (torch.device): Model device.
-        args (Namespace): Arguments with `mode`.
+#     Args:
+#         num_classes (int): Output classes.
+#         device (torch.device): Model device.
+#         args (Namespace): Arguments with `mode`.
 
-    Returns:
-        FasterRCNN: PyTorch model.
-    """
-    backbone = resnet_fpn_backbone(
-        'resnet101',
-        pretrained=True,
-        trainable_layers=5)
+#     Returns:
+#         FasterRCNN: PyTorch model.
+#     """
+#     backbone = resnet_fpn_backbone(
+#         'resnet101',
+#         pretrained=True,
+#         trainable_layers=5)
 
-    anchor_generator = AnchorGenerator(
-        sizes=((4,), (8,), (12,), (24,), (48,)),
-        aspect_ratios=((0.25, 0.5, 1.0),) * 5
-    )
+#     anchor_generator = AnchorGenerator(
+#         sizes=((4,), (8,), (12,), (24,), (48,)),
+#         aspect_ratios=((0.25, 0.5, 1.0),) * 5
+#     )
 
-    roi_pooler = MultiScaleRoIAlign(
-        featmap_names=["0", "1", "2", "3"],
-        output_size=7,
-        sampling_ratio=2,
-    )
+#     roi_pooler = MultiScaleRoIAlign(
+#         featmap_names=["0", "1", "2", "3"],
+#         output_size=7,
+#         sampling_ratio=2,
+#     )
 
-    model = FasterRCNN(
-        backbone=backbone,
-        num_classes=num_classes,
-        rpn_anchor_generator=anchor_generator,
-        box_roi_pool=roi_pooler
-    )
+#     model = FasterRCNN(
+#         backbone=backbone,
+#         num_classes=num_classes,
+#         rpn_anchor_generator=anchor_generator,
+#         box_roi_pool=roi_pooler
+#     )
 
-    if args.mode in ("train", "validate"):
-        model.roi_heads.score_thresh = 0.5
-        model.roi_heads.nms_thresh = 0.5
-    elif args.mode == "test":
-        model.roi_heads.score_thresh = 0.7
-        model.roi_heads.nms_thresh = 0.3
+#     if args.mode in ("train", "validate"):
+#         model.roi_heads.score_thresh = 0.5
+#         model.roi_heads.nms_thresh = 0.5
+#     elif args.mode == "test":
+#         model.roi_heads.score_thresh = 0.7
+#         model.roi_heads.nms_thresh = 0.3
 
-    model.roi_heads.positive_fraction = 0.25
+#     model.roi_heads.positive_fraction = 0.25
 
-    in_features = model.roi_heads.box_predictor.cls_score.in_features
-    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+#     in_features = model.roi_heads.box_predictor.cls_score.in_features
+#     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
-    return model.to(device)
+#     return model.to(device)
