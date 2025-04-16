@@ -24,7 +24,6 @@ Model*/
 *.txt
 
 # ========== temp ===========
-# ignore folder 
-report
+# ignore folder
 all
 saved_models_ciou
