@@ -55,11 +55,11 @@ NYCU-Computer-Vision-2025-Spring-HW2
 4. Run for Train
     1. Train Model 
     ```
-    python main.py DATAPATH [--epochs EPOCH] [--batch_size BATCH_SIZE] [--learning_rate LEARNING_RATE] [--decay DECAY] [--eta_min ETA_MIN] [--save SAVE_FOLDER] [--mode train]
+    python main.py DATAPATH [--epochs EPOCH] [--batch_size BATCH_SIZE] [--learning_rate LEARNING_RATE] [--decay DECAY] [--eta_min ETA_MIN] [--save_path SAVE_FOLDER] [--mode train]
     ```
     Example
     ```
-    python main.py ./nycu-hw2-data --epochs 15 --batch_size 8 --learning_rate 1e-4 --decay 1e-4 --save saved_models
+    python main.py ./nycu-hw2-data --epochs 15 --batch_size 8 --learning_rate 1e-4 --decay 1e-4 --save_path saved_models
     ```
     2. Test Model
     ```
@@ -97,5 +97,5 @@ NYCU-Computer-Vision-2025-Spring-HW2
 |                  | mAP                      | Accuracy                 |
 |------------------|--------------------------|--------------------------|
 | Validation       | 0.4650                   | ******                   |
-| Public Test      | 0.3798                   | 0.8360                   |
+| Public Test      | 0.3763                   | 0.8367                   |
 
